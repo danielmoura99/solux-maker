@@ -27,7 +27,10 @@ module.exports = async (req, res, next) => {
     }
 
     // Adicionar o usuário ao objeto de requisição
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      companyId: user.companyId,
+    };
     next();
   } catch (error) {
     console.error("Erro na autenticação:", error);

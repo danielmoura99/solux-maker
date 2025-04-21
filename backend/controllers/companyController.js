@@ -24,7 +24,7 @@ exports.createCompany = async (req, res) => {
       data: {
         name,
         email,
-        credits: 100, // Créditos iniciais gratuitos
+        credits: 0, // Créditos iniciais gratuitos
         assistantSettings: assistantSettings || {},
       },
     });

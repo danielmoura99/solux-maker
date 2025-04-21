@@ -39,7 +39,7 @@ export default function RecentConversations() {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const response = await api.get("/conversations", {
+        const response = await api.get("api/conversations", {
           params: { limit: 5, offset: 0 },
         });
         setConversations(response.data.conversations || []);

@@ -70,10 +70,7 @@ class RAGService {
     const companyId = context.companyId;
 
     try {
-      // Em uma implementação real, usaríamos um banco de dados vetorial
-      // Para o MVP, vamos usar uma busca simples nos chunks do documento
-
-      // Buscar todos os chunks de documentos da empresa
+      // Buscar todos os documentos processados da empresa
       const documents = await prisma.document.findMany({
         where: {
           companyId,
@@ -87,31 +84,44 @@ class RAGService {
         },
       });
 
-      // Como não temos embeddings reais armazenados ainda,
-      // vamos retornar alguns chunks como exemplo
-      const simulatedResults = [];
+      console.log(
+        `Encontrados ${documents.length} documentos processados para a empresa ${companyId}`
+      );
 
+      const relevantDocs = [];
+
+      // Para cada documento, verificar se tem informações relevantes
+      // Em uma implementação real, usaríamos um banco de dados vetorial para busca eficiente
       for (const doc of documents) {
-        // Criar snippets simulados
-        simulatedResults.push({
+        // Extrair chunks do documento (em implementação real, estes estariam em um banco vetorial)
+        const chunks = doc.metadata.chunks || [];
+        console.log(`Documento ${doc.id} tem ${chunks} chunks`);
+
+        // Para o MVP, vamos simular a relevância
+        // Em uma implementação real, faríamos busca de similaridade
+
+        relevantDocs.push({
           id: doc.id,
           documentId: doc.id,
-          content: `Este é um trecho extraído do documento ${doc.name}. Ele contém informações que poderiam ser relevantes para a consulta "${query}".`,
+          content: `Este é um trecho extraído do documento "${doc.name}" (${doc.type}). Ele contém informações que poderiam ser relevantes para a consulta "${query}".`,
           metadata: {
             title: doc.name,
             type: doc.type,
+            uploadedAt: doc.metadata.uploadedAt,
+            size: doc.metadata.size,
           },
           similarity: 0.85, // Similaridade simulada
         });
       }
 
       // Se não encontrou nada, retornar lista vazia
-      if (simulatedResults.length === 0) {
+      if (relevantDocs.length === 0) {
+        console.log("Nenhum documento relevante encontrado");
         return [];
       }
 
-      // Ordenar por similaridade e pegar os top 3
-      return simulatedResults
+      // Ordenar por similaridade simulada e pegar os top 3
+      return relevantDocs
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 3);
     } catch (error) {

@@ -15,7 +15,7 @@ const documentProcessingService = new DocumentProcessingService();
 exports.addDocument = async (req, res) => {
   try {
     const { name, type } = req.body;
-    const fileContent = req.file ? req.file.buffer : null;
+    const file = req.file;
     const companyId = req.user.companyId;
 
     // Verificar se a empresa existe
@@ -28,32 +28,34 @@ exports.addDocument = async (req, res) => {
     }
 
     // Verificar se o arquivo foi enviado
-    if (!fileContent) {
+    if (!file) {
       return res.status(400).json({ message: "Arquivo não fornecido" });
+    }
+
+    // Verificar o tipo de arquivo
+    if (!["PDF", "DOCX", "TXT"].includes(type.toUpperCase())) {
+      return res.status(400).json({ message: "Tipo de arquivo não suportado" });
     }
 
     // Criar o documento
     const newDocument = await prisma.document.create({
       data: {
         name,
-        type,
+        type: type.toUpperCase(),
         status: "PENDING", // Inicialmente o documento está pendente
         companyId,
+        metadata: {
+          originalName: file.originalname,
+          size: file.size,
+          mimetype: file.mimetype,
+          path: file.path,
+          uploadedAt: new Date().toISOString(),
+        },
       },
     });
 
-    // Criar diretório para salvar os arquivos se não existir
-    const uploadDir = path.join(__dirname, "../uploads", companyId);
-    await mkdir(uploadDir, { recursive: true });
-
-    // Salvar o arquivo
-    const filePath = path.join(
-      uploadDir,
-      `${newDocument.id}.${type.toLowerCase()}`
-    );
-    await writeFile(filePath, fileContent);
-
     // Iniciar processamento assíncrono
+    const documentProcessingService = new DocumentProcessingService();
     documentProcessingService
       .processDocument(newDocument.id)
       .then(() => {
@@ -69,6 +71,7 @@ exports.addDocument = async (req, res) => {
     res.status(500).json({ message: "Erro interno do servidor" });
   }
 };
+
 // Listar documentos de uma empresa
 exports.listDocuments = async (req, res) => {
   try {

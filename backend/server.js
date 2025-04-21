@@ -1,21 +1,34 @@
-// backend/server.js
+// backend/server.js (modificar para adicionar multer)
 
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 require("dotenv").config();
-console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY);
 
-// Importar rotas
-const authRoutes = require("./routes/auth");
-const companyRoutes = require("./routes/company");
-const documentRoutes = require("./routes/document");
-const conversationRoutes = require("./routes/conversation");
-const creditRoutes = require("./routes/credit");
-const assistantRoutes = require("./routes/assistant");
+// Configurar o multer para upload de arquivos
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Criar pasta para a empresa se não existir
+    const dir = path.join(__dirname, "uploads", req.user?.companyId || "temp");
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    // Usar o nome original para facilitar a identificação
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
 
-// Inicializar appaa
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+// Inicializar app
 const app = express();
 
 // Middleware
@@ -25,7 +38,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
-// Rotas - Adicionando prefixo /api
+// Importar rotas
+const authRoutes = require("./routes/auth");
+const companyRoutes = require("./routes/company");
+const documentRoutes = require("./routes/document");
+const conversationRoutes = require("./routes/conversation");
+const creditRoutes = require("./routes/credit");
+const assistantRoutes = require("./routes/assistant");
+
+// Middleware para upload de documentos
+app.use("/api/documents", (req, res, next) => {
+  if (req.method === "POST") {
+    // Verificar token antes do upload
+    const auth = require("./middlewares/auth");
+    auth(req, res, () => {
+      upload.single("file")(req, res, next);
+    });
+  } else {
+    next();
+  }
+});
+
+// Rotas
 app.use("/api/auth", authRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/documents", documentRoutes);

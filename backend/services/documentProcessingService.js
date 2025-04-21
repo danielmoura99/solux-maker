@@ -2,18 +2,22 @@
 
 const fs = require("fs");
 const path = require("path");
-const { exec } = require("child_process");
+const axios = require("axios");
+const FormData = require("form-data");
 const prisma = require("../lib/prisma");
-const util = require("util");
-const execAsync = util.promisify(exec);
+const EmbeddingService = require("./embeddingService");
+
+const PYTHON_SERVICE_URL =
+  process.env.PYTHON_SERVICE_URL || "http://localhost:5000";
 
 class DocumentProcessingService {
   constructor() {
-    this.tempDir = path.join(__dirname, "../temp");
+    this.uploadsDir = path.join(__dirname, "../uploads");
+    this.embeddingService = new EmbeddingService();
 
-    // Garantir que o diretório temporário existe
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
+    // Garantir que o diretório de uploads existe
+    if (!fs.existsSync(this.uploadsDir)) {
+      fs.mkdirSync(this.uploadsDir, { recursive: true });
     }
   }
 
@@ -35,23 +39,37 @@ class DocumentProcessingService {
         data: { status: "PROCESSING" },
       });
 
-      // Obter o caminho do arquivo (assumindo que já foi salvo)
-      const filePath = this._getDocumentPath(document);
+      console.log(`Iniciando processamento do documento ${documentId}`);
 
-      // Extrair texto com docling
-      const extractedText = await this._extractTextWithDocling(
+      // Obter o caminho do arquivo
+      const filePath = document.metadata?.path;
+
+      // Verificar se o arquivo existe
+      if (!filePath || !fs.existsSync(filePath)) {
+        throw new Error(`Arquivo não encontrado: ${filePath}`);
+      }
+
+      // Enviar para o serviço Python processar
+      const extractedData = await this._sendToDoclingService(
         filePath,
-        document.type
+        document
+      );
+
+      console.log(
+        `Documento ${documentId} processado pelo docling com sucesso`
       );
 
       // Dividir o texto em chunks
-      const chunks = this._splitIntoChunks(extractedText);
+      const chunks = this._splitIntoChunks(extractedData.text);
 
-      // Gerar embeddings para cada chunk
-      const embeddingsResults = await this._generateEmbeddings(
-        chunks,
-        document.id
+      console.log(
+        `Documento ${documentId} dividido em ${chunks.length} chunks`
       );
+
+      // Processar cada chunk e gerar embeddings
+      const processedChunks = await this._processChunks(chunks, document.id);
+
+      console.log(`Embeddings gerados para documento ${documentId}`);
 
       // Atualizar o status do documento
       await prisma.document.update({
@@ -59,60 +77,122 @@ class DocumentProcessingService {
         data: {
           status: "PROCESSED",
           metadata: {
+            ...document.metadata,
+            ...extractedData.metadata,
             chunks: chunks.length,
-            totalTokens: embeddingsResults.totalTokens,
-            // Outras estatísticas relevantes
+            totalTokens: processedChunks.totalTokens,
+            processedAt: new Date().toISOString(),
           },
         },
       });
+
+      console.log(`Documento ${documentId} processado com sucesso!`);
 
       return {
         success: true,
         documentId,
         chunks: chunks.length,
+        metadata: extractedData.metadata,
       };
     } catch (error) {
       console.error(`Erro ao processar documento ${documentId}:`, error);
 
-      // Atualizar status do documento para erro
-      await prisma.document.update({
+      // Buscar o documento novamente antes de atualizar o status para erro
+      const documentToUpdate = await prisma.document.findUnique({
         where: { id: documentId },
-        data: {
-          status: "ERROR",
-          metadata: {
-            error: error.message,
-          },
-        },
       });
+
+      if (documentToUpdate) {
+        // Atualizar status do documento para erro
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: "ERROR",
+            metadata: {
+              ...documentToUpdate.metadata,
+              error: error.message,
+              errorTimestamp: new Date().toISOString(),
+            },
+          },
+        });
+      }
 
       throw error;
     }
   }
 
-  // Método para extrair texto de documentos usando docling
-  async _extractTextWithDocling(filePath, fileType) {
+  // Enviar documento para o serviço Python com docling
+  async _sendToDoclingService(filePath, document) {
     try {
-      // Em um ambiente real, aqui chamaríamos o serviço Python com docling
-      // Para este MVP, vamos simular a chamada
+      console.log(
+        `Enviando documento ${document.id} para processamento com docling...`
+      );
 
-      console.log(`Extraindo texto de ${filePath} (tipo: ${fileType})`);
+      // Criar FormData para envio do arquivo
+      const formData = new FormData();
+      formData.append("file", fs.createReadStream(filePath));
+      formData.append("document_id", document.id);
+      formData.append("document_type", document.type.toLowerCase());
 
-      // Simulação da chamada ao Python
-      // const { stdout, stderr } = await execAsync(`python extract_text.py "${filePath}" "${fileType}"`);
+      // Enviar para o serviço Python
+      const response = await axios.post(
+        `${PYTHON_SERVICE_URL}/process`,
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+          },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        }
+      );
 
-      // Para teste, vamos ler o arquivo diretamente se for txt
-      if (fileType.toLowerCase() === "txt") {
-        return fs.readFileSync(filePath, "utf8");
+      console.log("Resposta do serviço Python:", response.data);
+
+      if (!response.data.success) {
+        throw new Error(
+          `Falha no processamento: ${response.data.error || "Erro desconhecido"}`
+        );
       }
 
-      // Para outros tipos, simular o resultado
-      return `Conteúdo extraído do documento ${path.basename(filePath)}. 
-      Este é um texto de exemplo que simula o conteúdo extraído de um documento ${fileType.toUpperCase()}.
-      Em uma implementação real, usaremos docling para extrair o texto real do documento.
-      Este texto é para fins de teste do sistema RAG.`;
+      // Verificar se a resposta contém o texto extraído
+      const extractedText = response.data.text;
+      if (!extractedText && typeof extractedText !== "string") {
+        throw new Error("O serviço Python não retornou o texto extraído");
+      }
+
+      return {
+        text: extractedText,
+        metadata: response.data.metadata || {},
+      };
     } catch (error) {
-      console.error("Erro ao extrair texto com docling:", error);
-      throw new Error(`Falha ao extrair texto: ${error.message}`);
+      console.error("Erro ao enviar para serviço docling:", error);
+      console.log("Usando fallback para processamento de documento...");
+
+      // Fallback código...
+      let text = "";
+
+      // Para arquivos TXT, podemos ler diretamente
+      if (document.type.toLowerCase() === "txt") {
+        try {
+          text = fs.readFileSync(filePath, "utf8");
+        } catch (readError) {
+          console.error("Erro ao ler arquivo TXT:", readError);
+          text = `[Erro ao ler conteúdo do arquivo TXT: ${readError.message}]`;
+        }
+      } else {
+        // Para outros tipos, usamos um texto simulado
+        text = `Este é um texto simulado para o documento "${document.name}"...`;
+      }
+
+      return {
+        text,
+        metadata: {
+          title: document.name,
+          fallback: true,
+          error: error.message,
+        },
+      };
     }
   }
 
@@ -124,8 +204,6 @@ class DocumentProcessingService {
     let currentChunk = "";
 
     for (const paragraph of paragraphs) {
-      // Se o parágrafo já é maior que o tamanho máximo,
-      // dividimos em frases e processamos
       if (paragraph.length > maxChunkSize) {
         const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
 
@@ -138,7 +216,6 @@ class DocumentProcessingService {
           }
         }
       } else {
-        // Verificar se adicionar este parágrafo ultrapassa o limite
         if (currentChunk.length + paragraph.length > maxChunkSize) {
           chunks.push(currentChunk.trim());
           currentChunk = paragraph;
@@ -149,7 +226,6 @@ class DocumentProcessingService {
       }
     }
 
-    // Adicionar o último chunk se não estiver vazio
     if (currentChunk.trim()) {
       chunks.push(currentChunk.trim());
     }
@@ -157,31 +233,47 @@ class DocumentProcessingService {
     return chunks;
   }
 
-  // Método para gerar embeddings
-  async _generateEmbeddings(chunks, documentId) {
-    // Esta é uma implementação simulada
-    // Em um ambiente real, chamaríamos a API do OpenAI ou outro serviço
+  // Processar chunks e gerar embeddings
+  async _processChunks(chunks, documentId) {
+    let totalTokens = 0;
+    const processedChunks = [];
 
-    console.log(
-      `Gerando embeddings para ${chunks.length} chunks do documento ${documentId}`
-    );
+    try {
+      console.log(
+        `Gerando embeddings para ${chunks.length} chunks do documento ${documentId}...`
+      );
 
-    // Simular estrutura de retorno
-    return {
-      success: true,
-      totalTokens: chunks.reduce((total, chunk) => total + chunk.length / 4, 0),
-      chunks: chunks.length,
-    };
-  }
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
 
-  // Obter o caminho do arquivo
-  _getDocumentPath(document) {
-    // Em uma implementação real, usaríamos o caminho real do arquivo
-    // Para MVP, vamos simular um caminho
-    return path.join(
-      this.tempDir,
-      `${document.id}.${document.type.toLowerCase()}`
-    );
+        // Gerar embedding para o chunk
+        const embeddingResult =
+          await this.embeddingService.generateEmbedding(chunk);
+
+        // Em uma implementação real, salvaríamos no banco de dados vetorial
+        // Para o MVP, vamos simular salvando como metadados no documento
+        processedChunks.push({
+          index: i,
+          content: chunk,
+          embedding: "embedding_vector_aqui", // Não armazenamos o vetor real no log
+          tokenCount: embeddingResult.tokenUsage,
+        });
+
+        totalTokens += embeddingResult.tokenUsage;
+
+        console.log(
+          `Processado chunk ${i + 1}/${chunks.length} (${embeddingResult.tokenUsage} tokens)`
+        );
+      }
+
+      return {
+        chunks: processedChunks,
+        totalTokens,
+      };
+    } catch (error) {
+      console.error("Erro ao processar chunks:", error);
+      throw error;
+    }
   }
 }
 

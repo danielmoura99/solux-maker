@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, FileText, Loader2 } from "lucide-react";
 import { DataTable } from "./_components/DataTable";
 import { columns } from "./_columns/columns";
+import UploadDocumentForm from "./_components/UploadDocumentForm";
 
 type Document = {
   id: string;
@@ -48,9 +49,7 @@ export default function DocumentsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Documentos</h1>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" /> Adicionar Documento
-        </Button>
+        <UploadDocumentForm />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

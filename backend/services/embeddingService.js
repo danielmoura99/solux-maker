@@ -64,7 +64,7 @@ class EmbeddingService {
     return dotProduct / (mag1 * mag2);
   }
 
-  // Retorna um vetor de zeros do tamanho correto (para simulação)
+  // Para testes/simulação
   getEmptyEmbedding() {
     return Array(this.embedDimension).fill(0);
   }

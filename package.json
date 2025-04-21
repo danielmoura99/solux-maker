@@ -6,6 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
+    "python-service": "cd python_service && start.bat",
+    "python-service-unix": "cd python_service && ./start.sh",
+    "dev-all": "concurrently \"npm run dev\" \"npm run python-service\"",
     "lint": "eslint ."
   },
   "keywords": [],
@@ -14,19 +17,23 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.6.0",
+    "@radix-ui/react-dialog": "^1.1.10",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "form-data": "^4.0.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
     "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.2",
     "redis": "^4.7.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
     "eslint": "^9.25.0",
     "nodemon": "^3.1.9",
     "postcss": "^8.5.3",

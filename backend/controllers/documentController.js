@@ -1,11 +1,21 @@
 // backend/controllers/documentController.js
 
 const prisma = require("../lib/prisma");
+const DocumentProcessingService = require("../services/documentProcessingService");
+const fs = require("fs");
+const path = require("path");
+const util = require("util");
+const mkdir = util.promisify(fs.mkdir);
+const writeFile = util.promisify(fs.writeFile);
+
+// Inicializar o serviço de processamento
+const documentProcessingService = new DocumentProcessingService();
 
 // Adicionar novo documento
 exports.addDocument = async (req, res) => {
   try {
     const { name, type } = req.body;
+    const fileContent = req.file ? req.file.buffer : null;
     const companyId = req.user.companyId;
 
     // Verificar se a empresa existe
@@ -17,18 +27,41 @@ exports.addDocument = async (req, res) => {
       return res.status(400).json({ message: "Empresa não encontrada" });
     }
 
+    // Verificar se o arquivo foi enviado
+    if (!fileContent) {
+      return res.status(400).json({ message: "Arquivo não fornecido" });
+    }
+
     // Criar o documento
     const newDocument = await prisma.document.create({
       data: {
         name,
         type,
-        status: "PROCESSING", // Inicialmente o documento está em processamento
+        status: "PENDING", // Inicialmente o documento está pendente
         companyId,
       },
     });
 
-    // Aqui, em uma implementação real, enviaríamos o documento para processamento
-    // com docling, mas isso seria feito de forma assíncrona
+    // Criar diretório para salvar os arquivos se não existir
+    const uploadDir = path.join(__dirname, "../uploads", companyId);
+    await mkdir(uploadDir, { recursive: true });
+
+    // Salvar o arquivo
+    const filePath = path.join(
+      uploadDir,
+      `${newDocument.id}.${type.toLowerCase()}`
+    );
+    await writeFile(filePath, fileContent);
+
+    // Iniciar processamento assíncrono
+    documentProcessingService
+      .processDocument(newDocument.id)
+      .then(() => {
+        console.log(`Documento ${newDocument.id} processado com sucesso`);
+      })
+      .catch((error) => {
+        console.error(`Erro ao processar documento ${newDocument.id}:`, error);
+      });
 
     res.status(201).json(newDocument);
   } catch (error) {
@@ -36,7 +69,6 @@ exports.addDocument = async (req, res) => {
     res.status(500).json({ message: "Erro interno do servidor" });
   }
 };
-
 // Listar documentos de uma empresa
 exports.listDocuments = async (req, res) => {
   try {

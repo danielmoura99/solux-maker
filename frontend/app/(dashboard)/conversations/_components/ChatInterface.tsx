@@ -8,6 +8,8 @@ import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
+import api from "@/app/lib/api";
+import { toast } from "sonner";
 
 type Message = {
   id: string;
@@ -59,13 +61,32 @@ export default function ChatInterface({
     setMessage("");
     setSending(true);
 
-    const success = await onSendMessage(messageToSend);
+    try {
+      // Primeiro, adicionar a mensagem do usuário
+      const userMessageResponse = await api.post(
+        `api/conversations/${conversation.id}/messages`,
+        {
+          content: messageToSend,
+          type: "TEXT",
+          sender: "USER",
+        }
+      );
 
-    if (!success) {
+      // Em seguida, processar com o assistente
+      await api.post(`api/assistant/query`, {
+        query: messageToSend,
+        conversationId: conversation.id,
+      });
+
+      // Atualizar a conversa para mostrar todas as mensagens
+      await onSendMessage("");
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      toast.error("Erro ao enviar mensagem");
       setMessage(messageToSend);
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   };
 
   return (

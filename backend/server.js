@@ -5,6 +5,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
 require("dotenv").config();
+console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY);
 
 // Importar rotas
 const authRoutes = require("./routes/auth");
@@ -12,6 +13,7 @@ const companyRoutes = require("./routes/company");
 const documentRoutes = require("./routes/document");
 const conversationRoutes = require("./routes/conversation");
 const creditRoutes = require("./routes/credit");
+const assistantRoutes = require("./routes/assistant");
 
 // Inicializar appaa
 const app = express();
@@ -29,6 +31,7 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/credits", creditRoutes);
+app.use("/api/assistant", assistantRoutes);
 
 // Rota básica
 app.get("/", (req, res) => {

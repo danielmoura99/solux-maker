@@ -51,3 +51,33 @@ next-env.d.ts
 **/*.tsbuildinfo
 **/next-env.d.ts
 
+# Python service
+python_service/venv/
+python_service/__pycache__/
+python_service/*.pyc
+python_service/*.pyo
+python_service/*.pyd
+python_service/.Python
+python_service/env/
+python_service/build/
+python_service/develop-eggs/
+python_service/dist/
+python_service/downloads/
+python_service/eggs/
+python_service/.eggs/
+python_service/lib/
+python_service/lib64/
+python_service/parts/
+python_service/sdist/
+python_service/var/
+python_service/*.egg-info/
+python_service/.installed.cfg
+python_service/*.egg
+python_service/uploads/
+python_service/processed/
+
+# Pycache em qualquer diretório
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+

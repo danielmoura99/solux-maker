@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const response = await api.post("/auth/login", { email, password });
+      const response = await api.post("api/auth/login", { email, password });
 
       const { token: newToken, user: userData } = response.data;
 
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
 
       // Primeiro criar a empresa
-      const companyResponse = await api.post("/companies", {
+      const companyResponse = await api.post("api/companies", {
         name: data.companyName,
         email: data.email,
       });
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const companyId = companyResponse.data.id;
 
       // Depois criar o usuário
-      await api.post("/auth/register", {
+      await api.post("api/auth/register", {
         name: data.name,
         email: data.email,
         password: data.password,

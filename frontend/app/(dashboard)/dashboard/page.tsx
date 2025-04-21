@@ -27,15 +27,17 @@ export default function DashboardPage() {
         // Por ora, vamos simular alguns dados
 
         // Obter dados da empresa
-        const companyResponse = await api.get(`/companies/${user?.companyId}`);
+        const companyResponse = await api.get(
+          `api/companies/${user?.companyId}`
+        );
 
         // Obter contagem de conversas
-        const conversationsResponse = await api.get("/conversations", {
+        const conversationsResponse = await api.get("api/conversations", {
           params: { limit: 1, offset: 0 },
         });
 
         // Obter contagem de documentos
-        const documentsResponse = await api.get("/documents");
+        const documentsResponse = await api.get("api/documents");
 
         setStats({
           totalConversations: conversationsResponse.data.pagination.total || 0,

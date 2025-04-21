@@ -30,7 +30,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const response = await api.get("/documents");
+        const response = await api.get("api/documents");
         setDocuments(response.data || []);
       } catch (error) {
         console.error("Erro ao carregar documentos:", error);

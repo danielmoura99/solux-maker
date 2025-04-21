@@ -1,0 +1,89 @@
+// prisma/schema.prisma
+
+// Configuração do Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelos de dados
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String
+  password       String
+  role           Role     @default(USER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  company        Company? @relation(fields: [companyId], references: [id])
+  companyId      String?
+}
+
+model Company {
+  id                  String     @id @default(uuid())
+  name                String
+  email               String     @unique
+  credits             Int        @default(0)
+  active              Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  users               User[]
+  documents           Document[]
+  conversations       Conversation[]
+  assistantSettings   Json?      // Armazena configurações como tom de voz, nome, etc.
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // PDF, DOCX, TXT
+  status      String   // PROCESSING, PROCESSED, ERROR
+  company     Company  @relation(fields: [companyId], references: [id])
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  metadata    Json?    // Metadados do documento
+}
+
+model Conversation {
+  id           String    @id @default(uuid())
+  company      Company   @relation(fields: [companyId], references: [id])
+  companyId    String
+  userId       String?   // ID do usuário final (pode ser telefone no caso do WhatsApp)
+  channel      String    // WHATSAPP, WEB, etc.
+  status       String    // ACTIVE, CLOSED, TRANSFERRED
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  messages     Message[]
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+  content        String
+  type           String       // TEXT, IMAGE, FILE
+  sender         String       // USER, ASSISTANT
+  timestamp      DateTime     @default(now())
+  metadata       Json?        // Metadados como custo em créditos, etc.
+}
+
+model CreditTransaction {
+  id           String   @id @default(uuid())
+  companyId    String
+  amount       Int
+  operationType String   // ADD, SUBTRACT
+  timestamp    DateTime @default(now())
+  balanceAfter Int
+  description  String?
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}

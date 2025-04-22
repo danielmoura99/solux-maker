@@ -12,5 +12,7 @@ router.use(auth);
 router.post("api/query", assistantController.processQuery);
 // Rota para testar a conexão com o LLM
 router.post("/test", assistantController.testLLM);
+// Rota para testar o sistema RAG
+router.post("/test-rag", assistantController.testRAG);
 
 module.exports = router;

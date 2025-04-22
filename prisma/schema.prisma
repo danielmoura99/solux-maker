@@ -37,6 +37,18 @@ model Company {
   assistantSettings   Json?      // Armazena configurações como tom de voz, nome, etc.
 }
 
+model DocumentChunk {
+  id          String   @id @default(uuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  embedding   Bytes?   // Armazenar embedding como bytes
+  chunkIndex  Int
+  tokenCount  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Document {
   id          String   @id @default(uuid())
   name        String
@@ -47,7 +59,10 @@ model Document {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   metadata    Json?    // Metadados do documento
+  chunks      DocumentChunk[]
 }
+
+
 
 model Conversation {
   id           String    @id @default(uuid())

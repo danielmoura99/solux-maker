@@ -138,3 +138,62 @@ exports.testLLM = async (req, res) => {
     });
   }
 };
+
+// Método para testar o sistema RAG
+exports.testRAG = async (req, res) => {
+  try {
+    const { query } = req.body;
+    const companyId = req.user.companyId;
+
+    // Buscar a empresa
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+
+    if (!company) {
+      return res.status(400).json({ message: "Empresa não encontrada" });
+    }
+
+    // Verificar créditos
+    if (company.credits <= 0) {
+      return res.status(400).json({ message: "Créditos insuficientes" });
+    }
+
+    // Preparar contexto
+    const context = {
+      companyId,
+      companyName: company.name,
+      assistantName: company.assistantSettings?.name || "Assistente Virtual",
+      tone: company.assistantSettings?.tone || "PROFESSIONAL",
+    };
+
+    // Instanciar serviço RAG
+    const ragService = new RAGService();
+
+    // Processar a query com o RAG
+    const result = await ragService.processQuery(query, context);
+
+    // Calcular custo em créditos
+    const totalTokens = result.metadata.tokenUsage.total;
+    const creditCost = Math.ceil(totalTokens / 100);
+
+    // Consumir créditos
+    await creditController.consumeCredits(
+      companyId,
+      creditCost,
+      `Teste RAG: ${totalTokens} tokens`
+    );
+
+    return res.status(200).json({
+      answer: result.answer,
+      sources: result.sources,
+      metadata: {
+        tokenUsage: result.metadata.tokenUsage,
+        creditCost,
+      },
+    });
+  } catch (error) {
+    console.error("Erro ao testar RAG:", error);
+    res.status(500).json({ message: "Erro interno do servidor" });
+  }
+};

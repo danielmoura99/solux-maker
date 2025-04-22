@@ -78,7 +78,7 @@ class DocumentProcessingService {
           status: "PROCESSED",
           metadata: {
             ...document.metadata,
-            ...extractedData.metadata,
+            ...(extractedData.metadata || {}),
             chunks: chunks.length,
             totalTokens: processedChunks.totalTokens,
             processedAt: new Date().toISOString(),
@@ -236,13 +236,18 @@ class DocumentProcessingService {
   // Processar chunks e gerar embeddings
   async _processChunks(chunks, documentId) {
     let totalTokens = 0;
-    const processedChunks = [];
 
     try {
       console.log(
-        `Gerando embeddings para ${chunks.length} chunks do documento ${documentId}...`
+        `Processando ${chunks.length} chunks para documento ${documentId}...`
       );
 
+      // Primeiramente, excluir chunks existentes (se for reprocessamento)
+      await prisma.documentChunk.deleteMany({
+        where: { documentId },
+      });
+
+      // Processar cada chunk e salvar no banco
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
 
@@ -250,24 +255,30 @@ class DocumentProcessingService {
         const embeddingResult =
           await this.embeddingService.generateEmbedding(chunk);
 
-        // Em uma implementação real, salvaríamos no banco de dados vetorial
-        // Para o MVP, vamos simular salvando como metadados no documento
-        processedChunks.push({
-          index: i,
-          content: chunk,
-          embedding: "embedding_vector_aqui", // Não armazenamos o vetor real no log
-          tokenCount: embeddingResult.tokenUsage,
+        // Converter o embedding para Buffer para armazenar no banco
+        const embeddingBuffer = Buffer.from(
+          new Float32Array(embeddingResult.embedding).buffer
+        );
+
+        // Salvar o chunk e seu embedding no banco
+        await prisma.documentChunk.create({
+          data: {
+            documentId,
+            content: chunk,
+            embedding: embeddingBuffer,
+            chunkIndex: i,
+            tokenCount: embeddingResult.tokenUsage,
+          },
         });
 
         totalTokens += embeddingResult.tokenUsage;
-
         console.log(
           `Processado chunk ${i + 1}/${chunks.length} (${embeddingResult.tokenUsage} tokens)`
         );
       }
 
       return {
-        chunks: processedChunks,
+        totalChunks: chunks.length,
         totalTokens,
       };
     } catch (error) {

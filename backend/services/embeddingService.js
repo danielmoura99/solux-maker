@@ -64,6 +64,14 @@ class EmbeddingService {
     return dotProduct / (mag1 * mag2);
   }
 
+  convertEmbeddingToBuffer(embedding) {
+    return Buffer.from(new Float32Array(embedding).buffer);
+  }
+
+  convertBufferToEmbedding(buffer) {
+    return Array.from(new Float32Array(new Uint8Array(buffer).buffer));
+  }
+
   // Para testes/simulação
   getEmptyEmbedding() {
     return Array(this.embedDimension).fill(0);

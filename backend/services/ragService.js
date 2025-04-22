@@ -68,81 +68,100 @@ class RAGService {
   // Recuperar documentos relevantes baseados na query
   async _retrieveRelevantDocs(query, queryEmbedding, context) {
     const companyId = context.companyId;
+    const topK = 3; // Número de chunks mais relevantes a recuperar
 
     try {
-      // Buscar todos os documentos processados da empresa
+      // Buscar todos os documentos da empresa
       const documents = await prisma.document.findMany({
         where: {
           companyId,
           status: "PROCESSED",
         },
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          metadata: true,
+        include: {
+          chunks: {
+            select: {
+              id: true,
+              content: true,
+              embedding: true,
+              chunkIndex: true,
+            },
+          },
         },
       });
 
-      console.log(
-        `Encontrados ${documents.length} documentos processados para a empresa ${companyId}`
-      );
+      console.log(`Encontrados ${documents.length} documentos processados`);
 
-      const relevantDocs = [];
+      // Lista para armazenar todos os chunks com suas similaridades
+      const allChunksWithSimilarity = [];
 
-      // Para cada documento, verificar se tem informações relevantes
-      // Em uma implementação real, usaríamos um banco de dados vetorial para busca eficiente
+      // Para cada documento, calcular similaridade entre sua query e seus chunks
       for (const doc of documents) {
-        // Extrair chunks do documento (em implementação real, estes estariam em um banco vetorial)
-        const chunks = doc.metadata.chunks || [];
-        console.log(`Documento ${doc.id} tem ${chunks} chunks`);
+        for (const chunk of doc.chunks) {
+          // Converter o embedding de Buffer para Float32Array
+          const embeddingArray = new Float32Array(
+            new Uint8Array(chunk.embedding).buffer
+          );
 
-        // Para o MVP, vamos simular a relevância
-        // Em uma implementação real, faríamos busca de similaridade
+          // Calcular similaridade entre a query e o chunk
+          const similarity = this.embeddingService.calculateSimilarity(
+            queryEmbedding,
+            Array.from(embeddingArray)
+          );
 
-        relevantDocs.push({
-          id: doc.id,
-          documentId: doc.id,
-          content: `Este é um trecho extraído do documento "${doc.name}" (${doc.type}). Ele contém informações que poderiam ser relevantes para a consulta "${query}".`,
-          metadata: {
-            title: doc.name,
-            type: doc.type,
-            uploadedAt: doc.metadata.uploadedAt,
-            size: doc.metadata.size,
-          },
-          similarity: 0.85, // Similaridade simulada
-        });
+          allChunksWithSimilarity.push({
+            id: chunk.id,
+            documentId: doc.id,
+            documentName: doc.name,
+            documentType: doc.type,
+            content: chunk.content,
+            similarity,
+          });
+        }
       }
 
-      // Se não encontrou nada, retornar lista vazia
-      if (relevantDocs.length === 0) {
-        console.log("Nenhum documento relevante encontrado");
-        return [];
-      }
-
-      // Ordenar por similaridade simulada e pegar os top 3
-      return relevantDocs
+      // Ordenar por similaridade e pegar os top K chunks
+      const topChunks = allChunksWithSimilarity
         .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, 3);
+        .slice(0, topK);
+
+      console.log(`Recuperados ${topChunks.length} chunks mais relevantes`);
+
+      return topChunks;
     } catch (error) {
       console.error("Erro ao recuperar documentos relevantes:", error);
       return [];
     }
   }
 
-  _buildPromptWithContext(query, docs, context) {
-    const contextText =
-      docs.length > 0
-        ? `Contexto:\n${docs.map((doc) => doc.content).join("\n\n")}`
-        : "Não foram encontrados documentos relevantes para esta pergunta.";
+  _buildPromptWithContext(query, relevantDocs, context) {
+    if (relevantDocs.length === 0) {
+      return `
+  Pergunta do usuário: ${query}
+  
+  Não tenho informações específicas sobre esta pergunta em minha base de conhecimento. Por favor, responda com base em seu conhecimento geral, ou informe que não tem informações suficientes para responder com precisão.
+  `;
+    }
+
+    // Construir o contexto a partir dos documentos relevantes
+    const contextText = relevantDocs
+      .map((doc, index) => {
+        return `Trecho ${index + 1} (do documento "${doc.documentName}"):
+  ${doc.content}
+  
+  `;
+      })
+      .join("\n");
 
     return `
-${contextText}
-
-Pergunta do usuário: ${query}
-
-Responda à pergunta acima baseando-se no contexto fornecido. Se a resposta não estiver no contexto, responda que você não tem informações suficientes para responder com precisão.
-`;
+  Contexto relevante:
+  ${contextText}
+  
+  Pergunta do usuário: ${query}
+  
+  Responda à pergunta do usuário apenas usando as informações fornecidas no contexto acima. 
+  Se a resposta não estiver no contexto, responda honestamente que você não tem informações suficientes para responder com precisão.
+  Não invente informações.
+  `;
   }
 
   _getSystemPrompt(context) {

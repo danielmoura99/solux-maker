@@ -36,7 +36,7 @@ class LLMService {
       const response = await axios.post(
         "https://api.openai.com/v1/chat/completions",
         {
-          model: options.model || "gpt-3.5-turbo",
+          model: options.model || "gpt-4.1-nano",
           messages: [
             {
               role: "system",
@@ -62,7 +62,7 @@ class LLMService {
       return {
         text: response.data.choices[0].message.content,
         provider: "openai",
-        model: options.model || "gpt-3.5-turbo",
+        model: options.model || "gpt-4.1-nano",
         tokenUsage: {
           input: response.data.usage.prompt_tokens,
           output: response.data.usage.completion_tokens,

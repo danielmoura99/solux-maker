@@ -1,4 +1,4 @@
-// app/(dashboard)/credits/_components/CreditHistory.tsx
+// frontend/app/(dashboard)/credits/_components/CreditHistory.tsx
 
 "use client";
 
@@ -16,7 +16,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type CreditTransaction = {
   id: string;
@@ -26,6 +32,19 @@ type CreditTransaction = {
   timestamp: string;
   balanceAfter: number;
   description: string;
+  metadata?: {
+    tokenUsage?: {
+      input: number;
+      output: number;
+      total: number;
+    };
+    model?: string;
+    creditCost?: number;
+    planId?: string;
+    planName?: string;
+    price?: number;
+    validUntil?: string;
+  };
 };
 
 export default function CreditHistory() {
@@ -52,6 +71,16 @@ export default function CreditHistory() {
     }
   }, [user]);
 
+  // Função auxiliar para formatar data com verificação de segurança
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
+    } catch (error) {
+      return "Data inválida";
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -77,6 +106,7 @@ export default function CreditHistory() {
             <TableHead>Descrição</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead className="text-right">Valor</TableHead>
+            <TableHead className="text-right">Detalhes</TableHead>
             <TableHead className="text-right">Saldo Após</TableHead>
           </TableRow>
         </TableHeader>
@@ -114,6 +144,56 @@ export default function CreditHistory() {
               >
                 {transaction.operationType === "ADD" ? "+" : "-"}
                 {transaction.amount}
+              </TableCell>
+              <TableCell className="text-right">
+                {transaction.metadata?.tokenUsage && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center justify-end cursor-help">
+                          <span className="mr-1">
+                            {transaction.metadata.tokenUsage.total} tokens
+                          </span>
+                          <Info className="h-4 w-4 text-gray-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Modelo: {transaction.metadata.model || "Padrão"}</p>
+                        <p>
+                          Entrada: {transaction.metadata.tokenUsage.input}{" "}
+                          tokens
+                        </p>
+                        <p>
+                          Saída: {transaction.metadata.tokenUsage.output} tokens
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {transaction.metadata?.planName && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center justify-end cursor-help">
+                          <span className="mr-1">
+                            Plano {transaction.metadata.planName}
+                          </span>
+                          <Info className="h-4 w-4 text-gray-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Válido até:{" "}
+                          {formatDate(transaction.metadata.validUntil)}
+                        </p>
+                        <p>
+                          Preço: R${" "}
+                          {((transaction.metadata.price || 0) / 100).toFixed(2)}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </TableCell>
               <TableCell className="text-right">
                 {transaction.balanceAfter}

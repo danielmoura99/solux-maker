@@ -250,17 +250,25 @@ class DocumentProcessingService {
       // Processar cada chunk e salvar no banco
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
+        console.log(`Iniciando geração de embedding para chunk ${i + 1}...`);
 
         // Gerar embedding para o chunk
         const embeddingResult =
           await this.embeddingService.generateEmbedding(chunk);
+        console.log(
+          `Embedding gerado com sucesso para chunk ${i + 1}, tamanho: ${embeddingResult.embedding.length}`
+        );
 
         // Converter o embedding para Buffer para armazenar no banco
         const embeddingBuffer = Buffer.from(
           new Float32Array(embeddingResult.embedding).buffer
         );
+        console.log(
+          `Embedding convertido para buffer com sucesso, tamanho: ${embeddingBuffer.length}`
+        );
 
         // Salvar o chunk e seu embedding no banco
+        console.log(`Tentando salvar chunk ${i + 1} no banco...`);
         await prisma.documentChunk.create({
           data: {
             documentId,
@@ -270,6 +278,7 @@ class DocumentProcessingService {
             tokenCount: embeddingResult.tokenUsage,
           },
         });
+        console.log(`Chunk ${i + 1} salvo com sucesso!`);
 
         totalTokens += embeddingResult.tokenUsage;
         console.log(

@@ -7,6 +7,7 @@ const helmet = require("helmet");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+
 require("dotenv").config();
 
 // Configurar o multer para upload de arquivos
@@ -45,6 +46,7 @@ const documentRoutes = require("./routes/document");
 const conversationRoutes = require("./routes/conversation");
 const creditRoutes = require("./routes/credit");
 const assistantRoutes = require("./routes/assistant");
+const notificationRoutes = require("./routes/notification");
 
 // Middleware para upload de documentos
 app.use("/api/documents", (req, res, next) => {
@@ -66,6 +68,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/credits", creditRoutes);
 app.use("/api/assistant", assistantRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Rota básica
 app.get("/", (req, res) => {

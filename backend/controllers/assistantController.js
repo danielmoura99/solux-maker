@@ -58,16 +58,16 @@ exports.processQuery = async (req, res) => {
     // Processar a query com o RAG
     const result = await ragService.processQuery(query, context);
 
-    // Calcular custo em créditos
-    // No MVP, usamos uma fórmula simples: 1 crédito por cada 100 tokens
-    const totalTokens = result.metadata.tokenUsage.total;
-    const creditCost = Math.ceil(totalTokens / 100);
+    // Calcular custo em créditos baseado em tokens
+    const tokenUsage = result.metadata.tokenUsage;
+    const model = result.metadata.model;
 
-    // Consumir créditos
-    await creditController.consumeCredits(
+    // Consumir créditos usando a nova função
+    const creditResult = await creditController.consumeCredits(
       companyId,
-      creditCost,
-      `Processamento de mensagem: ${totalTokens} tokens`
+      tokenUsage,
+      model,
+      `Processamento de mensagem: ${tokenUsage.total} tokens com modelo ${model}`
     );
 
     // Registrar a mensagem do assistente
@@ -82,7 +82,7 @@ exports.processQuery = async (req, res) => {
           model: result.metadata.model,
           provider: result.metadata.provider,
           sources: result.sources,
-          creditCost,
+          creditCost: creditResult.creditCost,
         },
       },
     });
@@ -99,7 +99,7 @@ exports.processQuery = async (req, res) => {
       message: newMessage,
       metadata: {
         tokenUsage: result.metadata.tokenUsage,
-        creditCost,
+        creditCost: creditResult.creditCost,
         sources: result.sources,
       },
     });
@@ -108,6 +108,7 @@ exports.processQuery = async (req, res) => {
     res.status(500).json({ message: "Erro interno do servidor" });
   }
 };
+
 exports.testLLM = async (req, res) => {
   try {
     const { query } = req.body;

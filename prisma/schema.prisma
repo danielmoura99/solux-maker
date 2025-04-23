@@ -23,6 +23,19 @@ model User {
   companyId      String?
 }
 
+model Notification {
+  id          String    @id @default(uuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  type        String    // LOW_BALANCE, SYSTEM_UPDATE, etc.
+  title       String
+  message     String
+  metadata    Json?
+  status      String    // UNREAD, READ, DISMISSED
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+}
+
 model Company {
   id                  String     @id @default(uuid())
   name                String
@@ -35,6 +48,7 @@ model Company {
   documents           Document[]
   conversations       Conversation[]
   assistantSettings   Json?      // Armazena configurações como tom de voz, nome, etc.
+  notifications Notification[]
 }
 
 model DocumentChunk {
@@ -95,6 +109,7 @@ model CreditTransaction {
   timestamp    DateTime @default(now())
   balanceAfter Int
   description  String?
+  metadata       Json?     // Para armazenar informações como tokenUsage, model, etc.
 }
 
 enum Role {

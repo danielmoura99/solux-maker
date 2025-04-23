@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Menu, User, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
+import NotificationDropdown from "./NotificationDropdown";
 
 type HeaderProps = {
   onOpenMobileMenu: () => void;
@@ -45,6 +46,9 @@ export default function Header({ onOpenMobileMenu }: HeaderProps) {
 
           {/* Menu do usuário */}
           <div className="flex items-center">
+            {/* Componente de notificações */}
+            <NotificationDropdown />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

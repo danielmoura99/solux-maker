@@ -10,5 +10,7 @@ router.use(auth);
 
 // Rotas para créditos
 router.get("/history", creditController.getCreditHistory);
+router.post("/purchase", creditController.purchaseCredits);
+router.get("/plans", creditController.getCreditPlans);
 
 module.exports = router;

@@ -15,6 +15,7 @@ import AssistantSettings from "./_components/AssistantSettings";
 import AccountSettings from "./_components/AccountSettings";
 import CompanySettings from "./_components/CompanySettings";
 import IntegrationSettings from "./_components/IntegrationSettings";
+import WhatsAppSettings from "./_components/WhatsAppSettings";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("assistant");
@@ -38,6 +39,7 @@ export default function SettingsPage() {
           <TabsTrigger value="assistant">Assistente</TabsTrigger>
           <TabsTrigger value="account">Conta</TabsTrigger>
           <TabsTrigger value="company">Empresa</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="integrations">Integrações</TabsTrigger>
         </TabsList>
 
@@ -80,6 +82,20 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <CompanySettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações do WhatsApp</CardTitle>
+              <CardDescription>
+                Configure a integração com WhatsApp Business API
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WhatsAppSettings />
             </CardContent>
           </Card>
         </TabsContent>

@@ -36,6 +36,20 @@ model Notification {
   readAt      DateTime?
 }
 
+model WhatsAppConfig {
+  id                String   @id @default(uuid())
+  companyId         String   @unique
+  company           Company  @relation(fields: [companyId], references: [id])
+  phoneNumber       String   // Número de telefone associado
+  apiKey            String?  // Chave da API do WhatsApp Business (encriptada)
+  verificationToken String?  // Token para verificação do webhook
+  active            Boolean  @default(false)
+  welcomeMessage    String   @default("Olá! Sou o assistente virtual. Como posso ajudar?")
+  offHoursMessage   String   @default("Estamos fora do horário de atendimento. Retornaremos em breve.")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 model Company {
   id                  String     @id @default(uuid())
   name                String
@@ -48,7 +62,8 @@ model Company {
   documents           Document[]
   conversations       Conversation[]
   assistantSettings   Json?      // Armazena configurações como tom de voz, nome, etc.
-  notifications Notification[]
+  notifications       Notification[]
+  whatsAppConfig      WhatsAppConfig?
 }
 
 model DocumentChunk {

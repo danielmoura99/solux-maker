@@ -47,6 +47,7 @@ const conversationRoutes = require("./routes/conversation");
 const creditRoutes = require("./routes/credit");
 const assistantRoutes = require("./routes/assistant");
 const notificationRoutes = require("./routes/notification");
+const whatsappRoutes = require("./routes/whatsapp");
 
 // Middleware para upload de documentos
 app.use("/api/documents", (req, res, next) => {
@@ -69,6 +70,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/credits", creditRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/whatsapp", whatsappRoutes);
 
 // Rota básica
 app.get("/", (req, res) => {

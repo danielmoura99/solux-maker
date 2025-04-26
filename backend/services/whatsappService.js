@@ -46,14 +46,21 @@ class WhatsAppService {
         dataPath: sessionDir,
       }),
       puppeteer: {
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        headless: false, // Tornar visível para depuração
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-web-security",
+          "--disable-features=IsolateOrigins,site-per-process",
+          "--allow-running-insecure-content",
+        ],
       },
     });
 
     // Set up event handlers
     client.on("qr", (qr) => {
       // Generate QR code as data URL
+      console.log("QR CODE GERADO:", qr);
       qrcode.toDataURL(qr, (err, url) => {
         if (err) {
           console.error("Error generating QR code:", err);
@@ -67,6 +74,18 @@ class WhatsAppService {
         // Update company's WhatsApp integration status
         this._updateCompanyWhatsAppStatus(companyId, "WAITING_QR_SCAN");
       });
+    });
+
+    client.on("loading_screen", (percent, message) => {
+      console.log("CARREGANDO:", percent, message);
+    });
+
+    client.on("authenticated", () => {
+      console.log("AUTENTICADO");
+    });
+
+    client.on("auth_failure", (msg) => {
+      console.error("FALHA NA AUTENTICAÇÃO:", msg);
     });
 
     client.on("ready", async () => {

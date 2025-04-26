@@ -78,17 +78,30 @@ exports.whatsappEvents = async (req, res) => {
   try {
     const companyId = req.user.companyId;
 
-    // Configurar cabeçalhos para SSE
+    // Configurar cabeçalhos para SSE com CORS
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+    res.setHeader("Access-Control-Allow-Origin", "*"); // Permitir CORS
     res.flushHeaders();
+
+    // Enviar evento de heartbeat a cada 30 segundos para manter a conexão viva
+    const heartbeatInterval = setInterval(() => {
+      res.write(": heartbeat\n\n");
+    }, 30000);
 
     // Função para enviar eventos para o cliente
     const sendEvent = (event, data) => {
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      try {
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (error) {
+        console.error(`Erro ao enviar evento ${event}:`, error);
+      }
     };
+
+    // Enviar evento inicial
+    sendEvent("connected", { message: "Conexão estabelecida" });
 
     // Armazenar conexão para esta empresa
     if (!connections.has(companyId)) {
@@ -96,58 +109,69 @@ exports.whatsappEvents = async (req, res) => {
     }
     connections.get(companyId).push(sendEvent);
 
-    // Enviar evento inicial
-    sendEvent("connected", { message: "Conexão estabelecida" });
-
     // Inicializar cliente WhatsApp (se ainda não estiver inicializado)
-    const { events } = await whatsappService.initClient(companyId);
+    try {
+      const { events } = await whatsappService.initClient(companyId);
 
-    // Configurar ouvintes de eventos específicos para esta empresa
-    const qrListener = (qrcode) => {
-      sendEvent("qr", { qrcode });
-    };
+      // Configurar ouvintes de eventos específicos para esta empresa
+      const qrListener = (qrcode) => {
+        sendEvent("qr", { qrcode });
+      };
 
-    const readyListener = () => {
-      sendEvent("ready", { message: "WhatsApp conectado com sucesso" });
-    };
+      const readyListener = () => {
+        sendEvent("ready", { message: "WhatsApp conectado com sucesso" });
+      };
 
-    const authenticatedListener = () => {
-      sendEvent("authenticated", { message: "Autenticação bem-sucedida" });
-    };
+      const authenticatedListener = () => {
+        sendEvent("authenticated", { message: "Autenticação bem-sucedida" });
+      };
 
-    const errorListener = (error) => {
-      sendEvent("error", { message: error.toString() });
-    };
+      const errorListener = (error) => {
+        sendEvent("error", { message: error.toString() });
+      };
 
-    const disconnectedListener = (reason) => {
-      sendEvent("disconnected", { message: reason });
-    };
+      const disconnectedListener = (reason) => {
+        sendEvent("disconnected", { message: reason });
+      };
 
-    // Registrar ouvintes
-    events.on(`${companyId}:qr`, qrListener);
-    events.on(`${companyId}:ready`, readyListener);
-    events.on(`${companyId}:authenticated`, authenticatedListener);
-    events.on(`${companyId}:error`, errorListener);
-    events.on(`${companyId}:disconnected`, disconnectedListener);
+      // Registrar ouvintes
+      events.on(`${companyId}:qr`, qrListener);
+      events.on(`${companyId}:ready`, readyListener);
+      events.on(`${companyId}:authenticated`, authenticatedListener);
+      events.on(`${companyId}:error`, errorListener);
+      events.on(`${companyId}:disconnected`, disconnectedListener);
 
-    // Lidar com o fechamento da conexão
-    req.on("close", () => {
-      // Remover ouvintes para evitar vazamento de memória
-      events.off(`${companyId}:qr`, qrListener);
-      events.off(`${companyId}:ready`, readyListener);
-      events.off(`${companyId}:authenticated`, authenticatedListener);
-      events.off(`${companyId}:error`, errorListener);
-      events.off(`${companyId}:disconnected`, disconnectedListener);
+      // Lidar com o fechamento da conexão
+      req.on("close", () => {
+        // Parar o heartbeat
+        clearInterval(heartbeatInterval);
 
-      // Remover conexão da lista
-      const companyConnections = connections.get(companyId) || [];
-      const index = companyConnections.indexOf(sendEvent);
-      if (index !== -1) {
-        companyConnections.splice(index, 1);
-      }
+        // Remover ouvintes para evitar vazamento de memória
+        events.off(`${companyId}:qr`, qrListener);
+        events.off(`${companyId}:ready`, readyListener);
+        events.off(`${companyId}:authenticated`, authenticatedListener);
+        events.off(`${companyId}:error`, errorListener);
+        events.off(`${companyId}:disconnected`, disconnectedListener);
 
-      console.log(`Conexão SSE fechada para empresa ${companyId}`);
-    });
+        // Remover conexão da lista
+        const companyConnections = connections.get(companyId) || [];
+        const index = companyConnections.indexOf(sendEvent);
+        if (index !== -1) {
+          companyConnections.splice(index, 1);
+        }
+
+        console.log(`Conexão SSE fechada para empresa ${companyId}`);
+      });
+    } catch (error) {
+      console.error("Erro ao configurar cliente WhatsApp:", error);
+      sendEvent("error", { message: "Erro ao inicializar cliente WhatsApp" });
+
+      // Mesmo com erro, mantemos a conexão SSE aberta para que o cliente receba a mensagem de erro
+      req.on("close", () => {
+        clearInterval(heartbeatInterval);
+        console.log(`Conexão SSE fechada para empresa ${companyId} após erro`);
+      });
+    }
   } catch (error) {
     console.error("Erro ao configurar eventos do WhatsApp:", error);
     res.status(500).end();

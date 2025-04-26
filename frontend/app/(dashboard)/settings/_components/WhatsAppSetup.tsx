@@ -1,8 +1,8 @@
-// app/(dashboard)/settings/_components/WhatsAppSetup.tsx
+// app/(dashboard)/settings/_components/WhatsAppSetup.tsx - VERSÃO CORRIGIDA
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react"; // Adicionado useRef
 import { useAuth } from "@/app/contexts/AuthContext";
 import api from "@/app/lib/api";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 
 // Status possíveis da integração WhatsApp
@@ -24,7 +25,8 @@ type WhatsAppStatus =
   | "WAITING_QR_SCAN"
   | "CONNECTED"
   | "DISCONNECTED"
-  | "AUTH_FAILED";
+  | "AUTH_FAILED"
+  | "CONNECTION_ERROR"; // Adicionado novo status
 
 // Informações da conta WhatsApp conectada
 type WhatsAppInfo = {
@@ -44,6 +46,8 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0); // Contador de tentativas
+  const eventSourceRef = useRef<EventSource | null>(null); // Referência para o EventSource
 
   // Verificar status atual
   const fetchStatus = async () => {
@@ -65,6 +69,14 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
     if (user?.companyId) {
       fetchStatus();
     }
+
+    // Limpar EventSource ao desmontar componente
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
   }, [user]);
 
   // Iniciar conexão com WhatsApp
@@ -72,6 +84,7 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
     try {
       setConnecting(true);
       setQrCode(null);
+      setRetryCount(0); // Resetar contador de tentativas
 
       // Inicializar cliente WhatsApp
       await api.post("api/whatsapp/initialize");
@@ -85,6 +98,7 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
       console.error("Erro ao iniciar conexão com WhatsApp:", error);
       toast.error("Erro ao iniciar conexão com WhatsApp");
       setConnecting(false);
+      setStatus("CONNECTION_ERROR");
     }
   };
 
@@ -107,17 +121,22 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
   // Configurar SSE (Server-Sent Events) para receber atualizações em tempo real
   const setupEventSource = () => {
     // Fechar EventSource existente se houver
-    if (window.eventSource) {
-      window.eventSource.close();
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
 
-    // Criar novo EventSource
-    const eventSource = new EventSource("api/whatsapp/events");
-    window.eventSource = eventSource;
+    // Obter o URL base da API
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+
+    // Criar novo EventSource com URL absoluto
+    const eventSource = new EventSource(`${baseUrl}/api/whatsapp/events`);
+    eventSourceRef.current = eventSource;
 
     // Configurar handlers para eventos
-    eventSource.addEventListener("connected", () => {
+    eventSource.addEventListener("connected", (event: MessageEvent) => {
       console.log("Conexão SSE estabelecida");
+      setRetryCount(0); // Resetar contador de tentativas em caso de sucesso
     });
 
     eventSource.addEventListener("qr", (event: MessageEvent) => {
@@ -125,20 +144,28 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
         const data = JSON.parse(event.data);
         setQrCode(data.qrcode);
         setStatus("WAITING_QR_SCAN");
+        setRetryCount(0); // Resetar contador se receber QR code com sucesso
       } catch (error) {
         console.error("Erro ao processar QR code:", error);
       }
     });
 
-    eventSource.addEventListener("ready", () => {
+    eventSource.addEventListener("ready", (event: MessageEvent) => {
       setStatus("CONNECTED");
       setConnecting(false);
       toast.success("WhatsApp conectado com sucesso!");
       fetchStatus(); // Buscar detalhes atualizados
+
+      // Fechar a conexão SSE depois de conectado com sucesso
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
     });
 
-    eventSource.addEventListener("authenticated", () => {
+    eventSource.addEventListener("authenticated", (event: MessageEvent) => {
       toast.success("Autenticação bem-sucedida");
+      setRetryCount(0); // Resetar contador de tentativas
     });
 
     eventSource.addEventListener("error", (event: MessageEvent) => {
@@ -149,6 +176,7 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
         toast.error("Ocorreu um erro na conexão WhatsApp");
       }
       setConnecting(false);
+      setStatus("CONNECTION_ERROR");
     });
 
     eventSource.addEventListener("disconnected", (event: MessageEvent) => {
@@ -165,19 +193,32 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
     // Configurar handler para erros no SSE
     eventSource.onerror = () => {
       console.error("Erro na conexão SSE");
-      eventSource.close();
-      setConnecting(false);
-    };
-  };
 
-  // Limpar EventSource ao desmontar componente
-  useEffect(() => {
-    return () => {
-      if (window.eventSource) {
-        window.eventSource.close();
+      // Tentativa de reconexão com backoff exponencial
+      const maxRetries = 3; // Número máximo de tentativas
+      if (retryCount < maxRetries) {
+        const retryDelay = Math.pow(2, retryCount) * 1000; // Backoff exponencial: 1s, 2s, 4s...
+
+        console.log(`Tentando reconectar em ${retryDelay / 1000} segundos...`);
+        toast.info(
+          `Problema de conexão, tentando novamente em ${retryDelay / 1000}s...`
+        );
+
+        setTimeout(() => {
+          setRetryCount((prev) => prev + 1);
+          setupEventSource(); // Tentar reconectar
+        }, retryDelay);
+      } else {
+        // Desistir após várias tentativas
+        eventSource.close();
+        setConnecting(false);
+        setStatus("CONNECTION_ERROR");
+        toast.error(
+          "Não foi possível estabelecer conexão com o servidor. Tente novamente mais tarde."
+        );
       }
     };
-  }, []);
+  };
 
   // Renderizar conteúdo com base no status
   const renderContent = () => {
@@ -185,6 +226,35 @@ export default function WhatsAppSetup({ showCard = true }: WhatsAppSetupProps) {
       return (
         <div className="flex justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        </div>
+      );
+    }
+
+    // Se houver erro de conexão, mostrar mensagem e opção de tentar novamente
+    if (status === "CONNECTION_ERROR") {
+      return (
+        <div className="p-6">
+          <div className="flex items-center mb-4">
+            <AlertTriangle className="h-6 w-6 text-red-500 mr-2" />
+            <h3 className="font-medium">Erro de Conexão</h3>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-700">
+              Não foi possível estabelecer conexão com o servidor para a
+              integração do WhatsApp. Isso pode ocorrer devido a:
+            </p>
+            <ul className="list-disc list-inside text-sm text-red-700 mt-2">
+              <li>Problemas de conectividade de rede</li>
+              <li>Servidor temporariamente indisponível</li>
+              <li>Configurações de firewall ou proxy</li>
+            </ul>
+          </div>
+
+          <Button onClick={handleConnect} className="w-full">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Tentar Novamente
+          </Button>
         </div>
       );
     }

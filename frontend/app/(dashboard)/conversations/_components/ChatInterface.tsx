@@ -7,9 +7,10 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, Smartphone } from "lucide-react";
 import api from "@/app/lib/api";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 type Message = {
   id: string;
@@ -41,6 +42,7 @@ export default function ChatInterface({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isWhatsApp = conversation.channel === "WHATSAPP";
 
   // Ordenar mensagens por timestamp
   const sortedMessages = [...conversation.messages].sort(
@@ -68,15 +70,25 @@ export default function ChatInterface({
         {
           content: messageToSend,
           type: "TEXT",
-          sender: "USER",
+          sender: "ASSISTANT",
         }
       );
 
-      // Em seguida, processar com o assistente
-      await api.post(`api/assistant/query`, {
-        query: messageToSend,
-        conversationId: conversation.id,
-      });
+      // Se for uma conversa de WhatsApp, também enviar via WhatsApp
+      if (isWhatsApp && conversation.userId) {
+        try {
+          await api.post("api/whatsapp/send", {
+            to: conversation.userId,
+            message: messageToSend,
+            conversationId: conversation.id,
+          });
+        } catch (whatsappError) {
+          console.error("Erro ao enviar mensagem WhatsApp:", whatsappError);
+          toast.error(
+            "Erro ao enviar mensagem pelo WhatsApp. Verifique a conexão do WhatsApp."
+          );
+        }
+      }
 
       // Atualizar a conversa para mostrar todas as mensagens
       await onSendMessage("");
@@ -97,9 +109,18 @@ export default function ChatInterface({
             <h3 className="font-medium">
               {conversation.userId || "Usuário Anônimo"}
             </h3>
-            <p className="text-sm text-gray-500">
-              Canal: {conversation.channel}
-            </p>
+            <div className="flex items-center space-x-2">
+              {isWhatsApp ? (
+                <Badge className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200">
+                  <Smartphone className="h-3 w-3" />
+                  <span>WhatsApp</span>
+                </Badge>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Canal: {conversation.channel}
+                </p>
+              )}
+            </div>
           </div>
           <div className="text-sm text-gray-500">
             ID: {conversation.id.substring(0, 8)}
@@ -153,7 +174,11 @@ export default function ChatInterface({
             <Input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Digite sua mensagem..."
+              placeholder={
+                isWhatsApp
+                  ? "Digite sua mensagem para enviar via WhatsApp..."
+                  : "Digite sua mensagem..."
+              }
               disabled={sending || conversation.status !== "ACTIVE"}
               className="flex-grow"
             />
@@ -170,6 +195,16 @@ export default function ChatInterface({
               )}
             </Button>
           </form>
+
+          {isWhatsApp && (
+            <div className="mt-2 text-xs text-gray-500 flex items-center">
+              <Smartphone className="h-3 w-3 mr-1" />
+              <span>
+                Esta mensagem será enviada pelo WhatsApp para{" "}
+                {conversation.userId}
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="p-4 border-t bg-gray-100 text-center text-gray-500">

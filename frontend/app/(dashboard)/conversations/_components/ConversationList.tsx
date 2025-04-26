@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MessageCircle, User, Calendar, Hash } from "lucide-react";
+import WhatsAppBadge from "./WhatsAppBadge";
 
 type Message = {
   id: string;
@@ -118,9 +119,13 @@ export default function ConversationList({
               <Hash className="h-3 w-3 mr-1" />
               <span>{conversation.id.substring(0, 8)}</span>
             </div>
-            <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
-              {conversation.channel}
-            </span>
+            {conversation.channel === "WHATSAPP" ? (
+              <WhatsAppBadge userId={conversation.userId} />
+            ) : (
+              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                {conversation.channel}
+              </span>
+            )}
           </div>
         </Card>
       ))}

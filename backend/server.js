@@ -39,6 +39,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
+// Configurar timeout longo para SSE (Server-Sent Events)
+app.use((req, res, next) => {
+  if (req.url.includes("/api/whatsapp/events")) {
+    req.socket.setTimeout(0);
+    res.socket.setTimeout(0);
+  }
+  next();
+});
+
 // Importar rotas
 const authRoutes = require("./routes/auth");
 const companyRoutes = require("./routes/company");

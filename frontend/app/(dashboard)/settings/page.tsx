@@ -15,7 +15,7 @@ import AssistantSettings from "./_components/AssistantSettings";
 import AccountSettings from "./_components/AccountSettings";
 import CompanySettings from "./_components/CompanySettings";
 import IntegrationSettings from "./_components/IntegrationSettings";
-import WhatsAppSettings from "./_components/WhatsAppSettings";
+import WhatsAppSetup from "./_components/WhatsAppSetup";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("assistant");
@@ -35,11 +35,11 @@ export default function SettingsPage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid grid-cols-4 w-full md:w-auto">
+        <TabsList className="grid grid-cols-5 w-full md:w-auto">
           <TabsTrigger value="assistant">Assistente</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="account">Conta</TabsTrigger>
           <TabsTrigger value="company">Empresa</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="integrations">Integrações</TabsTrigger>
         </TabsList>
 
@@ -54,6 +54,21 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <AssistantSettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Integração com WhatsApp</CardTitle>
+              <CardDescription>
+                Conecte sua conta WhatsApp para permitir que seu assistente se
+                comunique com seus clientes através do WhatsApp
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <WhatsAppSetup />
             </CardContent>
           </Card>
         </TabsContent>
@@ -82,20 +97,6 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <CompanySettings />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="whatsapp" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configurações do WhatsApp</CardTitle>
-              <CardDescription>
-                Configure a integração com WhatsApp Business API
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WhatsAppSettings />
             </CardContent>
           </Card>
         </TabsContent>

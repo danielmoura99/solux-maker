@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ArrowLeft, XCircle } from "lucide-react";
 import ChatInterface from "../_components/ChatInterface";
+import WhatsAppDetails from "./_components/WhatsAppDetails";
 
 type Message = {
   id: string;
@@ -35,6 +36,7 @@ export default function ConversationPage() {
   const { user } = useAuth();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
+  const isWhatsApp = conversation?.channel === "WHATSAPP";
 
   const fetchConversation = async () => {
     try {
@@ -138,11 +140,23 @@ export default function ConversationPage() {
         </div>
       </div>
 
-      <div className="flex-grow overflow-hidden shadow-sm rounded-lg border">
-        <ChatInterface
-          conversation={conversation}
-          onSendMessage={handleSendMessage}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-3 flex-grow overflow-hidden shadow-sm rounded-lg border">
+          <ChatInterface
+            conversation={conversation}
+            onSendMessage={handleSendMessage}
+          />
+        </div>
+
+        {isWhatsApp && (
+          <div className="lg:col-span-1">
+            <WhatsAppDetails
+              conversationId={conversation.id}
+              userId={conversation.userId}
+              onMessageSent={fetchConversation}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

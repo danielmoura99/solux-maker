@@ -5,15 +5,14 @@ const router = express.Router();
 const whatsappController = require("../controllers/whatsappController");
 const auth = require("../middlewares/auth");
 
-// Rota pública para webhook do WhatsApp (necessária para verificação)
-router.get("/webhook", whatsappController.verifyWebhook);
-router.post("/webhook", whatsappController.receiveMessage);
+// Todas as rotas requerem autenticação
+router.use(auth);
 
-// Rotas protegidas para configuração do WhatsApp (requerem autenticação)
-router.use("/config", auth);
-router.get("/config", whatsappController.getConfig);
-router.post("/config", whatsappController.saveConfig);
-router.put("/config/activate", whatsappController.activateConfig);
-router.put("/config/deactivate", whatsappController.deactivateConfig);
+// Rotas para integração com WhatsApp
+router.post("/initialize", whatsappController.initializeWhatsApp);
+router.get("/status", whatsappController.getWhatsAppStatus);
+router.get("/events", whatsappController.whatsappEvents);
+router.post("/send", whatsappController.sendWhatsAppMessage);
+router.post("/disconnect", whatsappController.disconnectWhatsApp);
 
 module.exports = router;

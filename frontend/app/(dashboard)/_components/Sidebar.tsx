@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   ShieldCheck,
+  Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
 
@@ -46,6 +47,11 @@ export default function Sidebar({ pathname }: SidebarProps) {
       name: "Conversas",
       href: "/conversations",
       icon: <MessageCircle className="w-5 h-5" />,
+    },
+    {
+      name: "WhatsApp",
+      href: "/whatsapp",
+      icon: <Smartphone className="w-5 h-5" />,
     },
     {
       name: "Créditos",

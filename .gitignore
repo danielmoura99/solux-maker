@@ -81,3 +81,7 @@ python_service/processed/
 **/*.py[cod]
 **/*$py.class
 
+# Logs
+backend/sessions
+backend/uploads/
+

@@ -8,6 +8,7 @@ const helmet = require("helmet");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const healthzRouter = require("./healthz");
 
 require("dotenv").config();
 
@@ -39,6 +40,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
+app.use("/healthz", healthzRouter);
 
 // Configurar timeout longo para SSE (Server-Sent Events)
 app.use((req, res, next) => {

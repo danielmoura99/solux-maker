@@ -6,7 +6,7 @@ import axios from "axios";
 const baseURL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://seu-backend-url.onrender.com"
+    ? "https://solux-backend.onrender.com"
     : "http://localhost:3000");
 // Criar instância do axios
 const api = axios.create({

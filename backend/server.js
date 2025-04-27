@@ -1,5 +1,6 @@
 // backend/server.js (modificar para adicionar multer)
 
+const { spawn } = require("child_process");
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -92,6 +93,48 @@ app.get("/", (req, res) => {
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: "Erro interno do servidor" });
+});
+
+// Iniciar o serviço Python
+let pythonService;
+
+function startPythonService() {
+  console.log("Iniciando serviço Python...");
+
+  // Caminho para o script Python
+  const pythonScriptPath = path.join(__dirname, "../python_service/app.py");
+
+  // Iniciar o serviço Python como um processo filho
+  pythonService = spawn("python3", [pythonScriptPath]);
+
+  // Capturar saída do serviço Python
+  pythonService.stdout.on("data", (data) => {
+    console.log(`Python Service: ${data}`);
+  });
+
+  // Capturar erros do serviço Python
+  pythonService.stderr.on("data", (data) => {
+    console.error(`Python Service Error: ${data}`);
+  });
+
+  // Reiniciar o serviço Python se ele morrer
+  pythonService.on("close", (code) => {
+    console.log(`Python Service exited with code ${code}`);
+    if (code !== 0) {
+      console.log("Reiniciando Python Service...");
+      setTimeout(startPythonService, 5000);
+    }
+  });
+}
+
+// Iniciar o serviço Python
+startPythonService();
+
+// Limpar processo filho ao encerrar o servidor
+process.on("exit", () => {
+  if (pythonService) {
+    pythonService.kill();
+  }
 });
 
 // Iniciar o servidor

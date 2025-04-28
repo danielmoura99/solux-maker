@@ -1,6 +1,6 @@
 FROM node:18-alpine
 
-WORKDIR /app
+WORKDIR /
 
 RUN npm install -g nodemon
 

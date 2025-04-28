@@ -12,7 +12,7 @@ import {
   CardTitle,
   CardContent,
   CardFooter,
-} from "@/app/components/ui/Card";
+} from "@/components/ui/card";
 import LoginForm from "./_components/LoginForm";
 //import { Button } from '@/components/ui/Button';
 

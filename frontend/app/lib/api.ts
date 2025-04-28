@@ -3,11 +3,7 @@
 import axios from "axios";
 
 // Definir a URL base da API
-const baseURL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "https://solux-backend.onrender.com"
-    : "http://localhost:3000");
+const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://backend:3000";
 // Criar instância do axios
 const api = axios.create({
   baseURL,

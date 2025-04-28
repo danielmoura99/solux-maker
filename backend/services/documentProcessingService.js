@@ -8,7 +8,7 @@ const prisma = require("../lib/prisma");
 const EmbeddingService = require("./embeddingService");
 
 const PYTHON_SERVICE_URL =
-  process.env.PYTHON_SERVICE_URL || "http://localhost:5000";
+  process.env.PYTHON_SERVICE_URL || "http://python-service:5000";
 
 class DocumentProcessingService {
   constructor() {

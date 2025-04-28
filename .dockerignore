@@ -1,0 +1,7 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+python_service/uploads/*
+python_service/processed/*
+python_service/venv

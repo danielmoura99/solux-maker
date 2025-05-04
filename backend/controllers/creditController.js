@@ -195,37 +195,30 @@ exports.calculateCreditCost = (tokenUsage, model = "default") => {
 // Consumir créditos (para uso interno, chamado por outros controladores)
 exports.consumeCredits = async (companyId, tokenUsage, model, description) => {
   try {
-    // Verificar se tokenUsage é válido
-    if (!tokenUsage) {
-      throw new Error("Uso de tokens não especificado");
-    }
-
-    // Garantir que temos um valor numérico válido para o custo
-    let creditCost;
-
-    // Se tokenUsage for um número, usamos diretamente
-    if (typeof tokenUsage === "number") {
-      creditCost = Math.max(1, Math.ceil(tokenUsage));
-    }
-    // Se for um objeto com propriedades de tokens
-    else if (typeof tokenUsage === "object") {
-      // Calcular com base nas propriedades
-      creditCost = this.calculateCreditCost(tokenUsage, model);
-    } else {
-      // Valor padrão se nenhuma das opções acima funcionar
-      creditCost = 1;
-    }
-
-    console.log("Consumindo créditos:", {
+    // Verificar se os parâmetros são válidos
+    console.log("Parâmetros de consumeCredits:", {
       companyId,
       tokenUsage,
       model,
-      creditCost,
+      description,
     });
 
-    // Verificar se creditCost é um número válido
-    if (isNaN(creditCost) || creditCost <= 0) {
-      creditCost = 1; // Usar valor padrão se inválido
+    // Definir um valor padrão para creditCost caso os parâmetros estejam inválidos
+    let creditCost = 1;
+
+    // Calcular o custo com base nos tokens e modelo se possível
+    if (tokenUsage) {
+      try {
+        if (typeof tokenUsage === "number") {
+          creditCost = Math.max(1, Math.ceil(tokenUsage / 100));
+        } else if (tokenUsage.total) {
+          creditCost = Math.max(1, Math.ceil(tokenUsage.total / 100));
+        }
+        console.log("Custo calculado:", creditCost);
+      } catch (error) {
+        console.error("Erro ao calcular custo dos créditos:", error);
+        // Manter o valor padrão de 1
+      }
     }
 
     // Iniciar transação para garantir consistência
@@ -239,19 +232,27 @@ exports.consumeCredits = async (companyId, tokenUsage, model, description) => {
         throw new Error(`Empresa não encontrada: ${companyId}`);
       }
 
+      console.log("Saldo atual:", company.credits);
+      console.log("Custo a ser debitado:", creditCost);
+
       if (company.credits < creditCost) {
         throw new Error(
           `Créditos insuficientes. Necessário: ${creditCost}, Disponível: ${company.credits}`
         );
       }
 
-      // Atualizar saldo com valor explícito
+      // Calcular o novo saldo explicitamente
+      const novoSaldo = company.credits - creditCost;
+
+      // Atualizar saldo usando o valor explícito em vez de decrement
       const updatedCompany = await prisma.company.update({
         where: { id: companyId },
         data: {
-          credits: company.credits - creditCost, // Usar substração direta em vez de decrement
+          credits: novoSaldo, // Usar o valor calculado diretamente
         },
       });
+
+      console.log("Saldo após atualização:", updatedCompany.credits);
 
       // Registrar transação com detalhes de consumo
       await prisma.creditTransaction.create({
@@ -262,8 +263,11 @@ exports.consumeCredits = async (companyId, tokenUsage, model, description) => {
           balanceAfter: updatedCompany.credits,
           description: description || "Consumo de créditos",
           metadata: {
-            tokenUsage,
-            model,
+            tokenUsage:
+              typeof tokenUsage === "object"
+                ? tokenUsage
+                : { total: tokenUsage },
+            model: model || "default",
             creditCost,
           },
         },

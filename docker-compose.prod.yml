@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  # Serviço de backend
+  backend:
+    build:
+      context: .
+      dockerfile: .docker/backend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PYTHON_SERVICE_URL=http://python-service:5000
+    volumes:
+      - ./backend:/backend
+      - /app/node_modules
+    depends_on:
+      - python-service
+    networks:
+      - solux-network
+
+  # Serviço de frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: .docker/frontend/Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://seu-backend-url.railway.app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - solux-network
+
+  # Serviço Python
+  python-service:
+    build:
+      context: .
+      dockerfile: .docker/python-service/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./python_service:/app
+      - python_service_data:/app/uploads
+      - python_service_data:/app/processed
+    networks:
+      - solux-network
+
+networks:
+  solux-network:
+    driver: bridge
+
+volumes:
+  python_service_data:

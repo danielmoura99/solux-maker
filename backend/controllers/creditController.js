@@ -195,8 +195,38 @@ exports.calculateCreditCost = (tokenUsage, model = "default") => {
 // Consumir créditos (para uso interno, chamado por outros controladores)
 exports.consumeCredits = async (companyId, tokenUsage, model, description) => {
   try {
-    // Calcular o custo com base nos tokens e modelo
-    const creditCost = this.calculateCreditCost(tokenUsage, model);
+    // Verificar se tokenUsage é válido
+    if (!tokenUsage) {
+      throw new Error("Uso de tokens não especificado");
+    }
+
+    // Garantir que temos um valor numérico válido para o custo
+    let creditCost;
+
+    // Se tokenUsage for um número, usamos diretamente
+    if (typeof tokenUsage === "number") {
+      creditCost = Math.max(1, Math.ceil(tokenUsage));
+    }
+    // Se for um objeto com propriedades de tokens
+    else if (typeof tokenUsage === "object") {
+      // Calcular com base nas propriedades
+      creditCost = this.calculateCreditCost(tokenUsage, model);
+    } else {
+      // Valor padrão se nenhuma das opções acima funcionar
+      creditCost = 1;
+    }
+
+    console.log("Consumindo créditos:", {
+      companyId,
+      tokenUsage,
+      model,
+      creditCost,
+    });
+
+    // Verificar se creditCost é um número válido
+    if (isNaN(creditCost) || creditCost <= 0) {
+      creditCost = 1; // Usar valor padrão se inválido
+    }
 
     // Iniciar transação para garantir consistência
     const result = await prisma.$transaction(async (prisma) => {
@@ -205,19 +235,21 @@ exports.consumeCredits = async (companyId, tokenUsage, model, description) => {
         where: { id: companyId },
       });
 
+      if (!company) {
+        throw new Error(`Empresa não encontrada: ${companyId}`);
+      }
+
       if (company.credits < creditCost) {
         throw new Error(
           `Créditos insuficientes. Necessário: ${creditCost}, Disponível: ${company.credits}`
         );
       }
 
-      // Atualizar saldo
+      // Atualizar saldo com valor explícito
       const updatedCompany = await prisma.company.update({
         where: { id: companyId },
         data: {
-          credits: {
-            decrement: creditCost,
-          },
+          credits: company.credits - creditCost, // Usar substração direta em vez de decrement
         },
       });
 
@@ -237,23 +269,13 @@ exports.consumeCredits = async (companyId, tokenUsage, model, description) => {
         },
       });
 
-      // Verificar saldo depois do consumo
-      if (updatedCompany.credits <= 50) {
-        // Agendar verificação de saldo baixo assíncrona
-        setTimeout(() => {
-          notificationService
-            .checkLowBalanceAndNotify(companyId)
-            .catch((error) =>
-              console.error("Erro ao verificar saldo baixo:", error)
-            );
-        }, 0);
-      }
-
       return {
         updatedCompany,
         creditCost,
       };
     });
+
+    return result;
   } catch (error) {
     console.error("Erro ao consumir créditos:", error);
     throw error;

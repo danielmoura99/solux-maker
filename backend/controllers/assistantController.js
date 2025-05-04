@@ -62,12 +62,15 @@ exports.processQuery = async (req, res) => {
     const tokenUsage = result.metadata.tokenUsage;
     const model = result.metadata.model;
 
-    // Consumir créditos usando a nova função
+    // No final da função testRAG
+    const creditCost = Math.ceil(totalTokens / 100); // Defina novamente o creditCost aqui
+
+    // Consumir créditos - CORREÇÃO NA CHAMADA
     const creditResult = await creditController.consumeCredits(
       companyId,
       tokenUsage,
       model,
-      `Processamento de mensagem: ${tokenUsage.total} tokens com modelo ${model}`
+      `Teste RAG: ${tokenUsage.total} tokens`
     );
 
     // Registrar a mensagem do assistente
@@ -96,11 +99,11 @@ exports.processQuery = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: newMessage,
+      answer: result.answer,
+      sources: result.sources,
       metadata: {
         tokenUsage: result.metadata.tokenUsage,
-        creditCost: creditResult.creditCost,
-        sources: result.sources,
+        creditCost: creditResult.creditCost || creditCost, // Use o retorno ou o calculado localmente
       },
     });
   } catch (error) {
@@ -175,14 +178,15 @@ exports.testRAG = async (req, res) => {
     const result = await ragService.processQuery(query, context);
 
     // Calcular custo em créditos
-    const totalTokens = result.metadata.tokenUsage.total;
-    const creditCost = Math.ceil(totalTokens / 100);
+    const tokenUsage = result.metadata.tokenUsage;
+    const model = result.metadata.model || "default";
 
-    // Consumir créditos
+    // Consumir créditos - CORREÇÃO NA CHAMADA
     await creditController.consumeCredits(
       companyId,
-      creditCost,
-      `Teste RAG: ${totalTokens} tokens`
+      tokenUsage, // Passando o objeto tokenUsage completo
+      model,
+      `Teste RAG: ${tokenUsage.total} tokens`
     );
 
     return res.status(200).json({
@@ -190,7 +194,7 @@ exports.testRAG = async (req, res) => {
       sources: result.sources,
       metadata: {
         tokenUsage: result.metadata.tokenUsage,
-        creditCost,
+        creditCost: creditCost,
       },
     });
   } catch (error) {

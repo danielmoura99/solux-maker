@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "docker-compose.prod.yml"
+
+[deploy]
+startCommand = "docker-compose up -d"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 300

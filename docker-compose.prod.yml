@@ -15,13 +15,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - PYTHON_SERVICE_URL=http://python-service:5000
-    volumes:
-      - ./backend:/backend
-      - /app/node_modules
     depends_on:
       - python-service
-    networks:
-      - solux-network
+    restart: always
 
   # Serviço de frontend
   frontend:
@@ -31,15 +27,10 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=https://seu-backend-url.railway.app
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - NEXT_PUBLIC_API_URL=${RAILWAY_PUBLIC_DOMAIN_BACKEND}
     depends_on:
       - backend
-    networks:
-      - solux-network
+    restart: always
 
   # Serviço Python
   python-service:
@@ -48,16 +39,4 @@ services:
       dockerfile: .docker/python-service/Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      - ./python_service:/app
-      - python_service_data:/app/uploads
-      - python_service_data:/app/processed
-    networks:
-      - solux-network
-
-networks:
-  solux-network:
-    driver: bridge
-
-volumes:
-  python_service_data:
+    restart: always
